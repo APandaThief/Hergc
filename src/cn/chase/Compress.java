@@ -13,7 +13,7 @@ public class Compress {
 
     public static String identifier;
     public static int ref_low_vec_len = 0, tar_low_vec_len = 0, line_break_len = 0, other_char_len = 0, N_vec_len = 0, line_len = 0, ref_seq_len = 0, tar_seq_len = 0;
-    public static int diff_pos_loc_len, diff_low_vec_len;
+    public static int diff_pos_loc_len, diff_low_vec_len = 0;
 
     public static char[] ref_seq_code = new char[MAX_CHAR_NUM];
     public static char[] tar_seq_code = new char[MAX_CHAR_NUM];
@@ -236,16 +236,43 @@ public class Compress {
         }
     }
 
-    public static void searchMatchPosVec() {
-        int start_position = 0, i = 0;
-        diff_low_vec_len = 0;
+    public static void searchMatchPosVec() {    //二次压缩小写字符二元组
         for (int x = 0; x < tar_low_vec_len; x ++) {
             diff_low_loc[x] = 0;
         }
 
+//        for(int i = 0; i < tar_low_vec_len; i ++){
+//            //search from the start_position to the end
+//            for (int j = start_position; j < ref_low_vec_len; j ++){
+//                if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])) {
+//                    diff_low_loc[i] = j;
+//                    start_position = j + 1;
+//                    break;
+//                }
+//            }
+//
+//            //search from the start_position to the begin
+//            if(diff_low_loc[i] == 0) {
+//                for (int j = start_position - 1; j > 0; j --){
+//                    if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])){
+//                        diff_low_loc[i] = j;
+//                        start_position = j + 1;
+//                        break;
+//                    }
+//                }
+//            }
+//
+//            //record the mismatched information
+//            if(diff_low_loc[i] == 0){
+//                diff_low_vec_begin[diff_low_vec_len] = tar_low_vec_begin[i];
+//                diff_low_vec_length[diff_low_vec_len ++] = tar_low_vec_length[i ++];
+//            }
+//        }
+
+        int start_position = 0, i = 0;
         out:
-        while(i < tar_low_vec_len){
-            for (int j = start_position; j < ref_low_vec_len; j ++){
+        while(i < tar_low_vec_len) {
+            for (int j = start_position; j < ref_low_vec_len; j ++) {
                 if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])) {
                     diff_low_loc[i] = j;
                     start_position = j + 1;
@@ -253,8 +280,8 @@ public class Compress {
                     continue out;
                 }
             }
-            for (int j = start_position - 1; j > 0; j --){
-                if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])){
+            for (int j = start_position - 1; j > 0; j --) {
+                if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])) {
                     diff_low_loc[i] = j;
                     start_position = j + 1;
                     i ++;
@@ -265,6 +292,7 @@ public class Compress {
             diff_low_vec_length[diff_low_vec_len ++] = tar_low_vec_length[i ++];
         }
 
+        //diff_low_loc[i]可能是连续的数字，再次压缩成二元组
         if (tar_low_vec_len > 0) {
             int cnt = 1;
             diff_pos_loc_begin[diff_pos_loc_len] = diff_low_loc[0];
@@ -307,13 +335,11 @@ public class Compress {
     }
 
     public static void saveOtherData(Stream stream) {
-        binaryCoding(stream, identifier.length() + 1);
-        System.out.println(identifier.length());
+        binaryCoding(stream, identifier.length());
         char[] meta_data = identifier.toCharArray();
         for(int i = 0; i < identifier.length(); i ++) {
             bitFilePutChar(stream, meta_data[i]);
         }
-        bitFilePutChar(stream, 13);
 
         binaryCoding(stream, line_len);
         for (int i = 0; i < line_len; i ++) {
