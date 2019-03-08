@@ -268,17 +268,17 @@ public class Compress {
 
         if (num < 2) {
             type = 1;
-            bitFilePutBitsInt(stream, type, 2);
+            bitFilePutBitsInt(stream, type, 2); //01
             bitFilePutBit(stream, num);
         } else if (num < 262146) {
             type = 1;
             num -= 2;
-            bitFilePutBit(stream, type);
+            bitFilePutBit(stream, type);    //1
             bitFilePutBitsInt(stream, num, 18);
         } else {
             type = 0;
             num -= 262146;
-            bitFilePutBitsInt(stream, type, 2);
+            bitFilePutBitsInt(stream, type, 2); //00
             bitFilePutBitsInt(stream, num, 28);
         }
     }
@@ -409,6 +409,7 @@ public class Compress {
         }
 
         for(; i < tar_seq_len; i++) {
+            System.out.println("hello");
             dismatched_str[misLen ++] = tar_seq_code[i];
         }
 
@@ -420,7 +421,7 @@ public class Compress {
         }
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         File refFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg17_chr21.fa");
         File tarFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg18_chr21.fa");
         File resultFile = new File("E:/result.txt");
@@ -451,5 +452,30 @@ public class Compress {
         searchMatchSeqCode(stream);
         System.out.println("serarchMatchSeqCode耗费时间为" + (System.currentTimeMillis() - time) + "ms");
         System.out.println("总耗费时间为" + (System.currentTimeMillis() - startTime) + "ms");
+
+        int bitBuffer = stream.getBitBuffer();
+        int bitCount = stream.getBitCount();
+        if (bitCount != 0)
+        {
+            bitBuffer <<= (8 - bitCount);
+            BufferedOutputStream bos = null;
+            try {
+                bos = new BufferedOutputStream(new FileOutputStream(resultFile, true));
+                bos.write(bitBuffer);
+                bos.flush();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                if (bos != null) {
+                    try {
+                        bos.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
     }
 }

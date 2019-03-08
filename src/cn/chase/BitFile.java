@@ -77,7 +77,7 @@ public class BitFile {
 
     public static int getInt(int num, int offset) {
         String numOfString = Integer.toBinaryString(num);
-        String result = null;
+        String result;
 
         while (numOfString.length() < 32) {
             numOfString = "0".concat(numOfString);
