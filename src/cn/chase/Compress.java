@@ -5,37 +5,38 @@ import java.io.*;
 import static cn.chase.BitFile.*;
 
 public class Compress {
-    public static int min_rep_len = 11;
-    public static int max_arr_num_bit = 2 * min_rep_len;
-    public static int max_arr_num = 1 << max_arr_num_bit;
-    public static int MAX_CHAR_NUM = 1 << 26;
-    public static int min_size = 1 << 20;
+    private static int kMerLen = 11;
+    private static int min_rep_len = 11;
+    private static int max_arr_num_bit = 2 * min_rep_len;
+    private static int max_arr_num = 1 << max_arr_num_bit;
+    private static int MAX_CHAR_NUM = 1 << 26;
+    private static int min_size = 1 << 20;
 
-    public static String identifier;
-    public static int ref_low_vec_len = 0, tar_low_vec_len = 0, line_break_len = 0, other_char_len = 0, N_vec_len = 0, line_len = 0, ref_seq_len = 0, tar_seq_len = 0;
-    public static int diff_pos_loc_len, diff_low_vec_len = 0;
+    private static String identifier;
+    private static int ref_low_vec_len = 0, tar_low_vec_len = 0, line_break_len = 0, other_char_len = 0, N_vec_len = 0, line_len = 0, ref_seq_len = 0, tar_seq_len = 0;
+    private static int diff_pos_loc_len, diff_low_vec_len = 0;
 
-    public static char[] ref_seq_code = new char[MAX_CHAR_NUM];
-    public static char[] tar_seq_code = new char[MAX_CHAR_NUM];
-    public static int[] ref_low_vec_begin = new int[min_size];
-    public static int[] ref_low_vec_length = new int[min_size];
-    public static int[] tar_low_vec_begin = new int[min_size];
-    public static int[] tar_low_vec_length = new int[min_size];
-    public static int[] N_vec_begin = new int[min_size];
-    public static int[] N_vec_length = new int[min_size];
-    public static int[] other_char_vec_pos = new int[min_size];
-    public static char[] other_char_vec_ch = new char[min_size];
-    public static int[] diff_low_vec_begin = new int[min_size];
-    public static int[] diff_low_vec_length = new int[min_size];
-    public static int[] line_start = new int[min_size];
-    public static int[] line_length = new int[min_size];
-    public static int[] diff_pos_loc_begin = new int[min_size];
-    public static int[] diff_pos_loc_length = new int[min_size];
-    public static int[] line_break_vec = new int[1 << 25];
-    public static int[] point = new int[max_arr_num];
-    public static int[] loc = new int[MAX_CHAR_NUM];
-    public static int[] diff_low_loc = new int[min_size];
-    public static char[] dismatched_str = new char[min_size];
+    private static char[] ref_seq_code = new char[MAX_CHAR_NUM];
+    private static char[] tar_seq_code = new char[MAX_CHAR_NUM];
+    private static int[] ref_low_vec_begin = new int[min_size];
+    private static int[] ref_low_vec_length = new int[min_size];
+    private static int[] tar_low_vec_begin = new int[min_size];
+    private static int[] tar_low_vec_length = new int[min_size];
+    private static int[] N_vec_begin = new int[min_size];
+    private static int[] N_vec_length = new int[min_size];
+    private static int[] other_char_vec_pos = new int[min_size];
+    private static char[] other_char_vec_ch = new char[min_size];
+    private static int[] diff_low_vec_begin = new int[min_size];
+    private static int[] diff_low_vec_length = new int[min_size];
+    private static int[] line_start = new int[min_size];
+    private static int[] line_length = new int[min_size];
+    private static int[] diff_pos_loc_begin = new int[min_size];
+    private static int[] diff_pos_loc_length = new int[min_size];
+    private static int[] line_break_vec = new int[1 << 25];
+    private static int[] point = new int[max_arr_num];
+    private static int[] loc = new int[MAX_CHAR_NUM];
+    private static int[] diff_low_loc = new int[min_size];
+    private static char[] dismatched_str = new char[min_size];
 
     public static byte agctIndex(char ch) {
         if (ch == 'A') {
@@ -212,62 +213,10 @@ public class Compress {
         }
     }
 
-    public static void kMerHashingConstruct() {
-        int value = 0;
-        int step_len = ref_seq_len - min_rep_len + 1;
-        for (int i = 0; i < max_arr_num; i ++) {
-            point[i] = -1;
-        }
-
-        for (int k = min_rep_len - 1; k >= 0; k --) {
-            value <<= 2;
-            value += agctIndex(ref_seq_code[k]);
-        }
-        loc[0] = point[value];
-        point[value] = 0;
-
-        int shift_bit_num = (min_rep_len * 2 - 2);
-        int one_sub_str = min_rep_len - 1;
-        for (int i = 1; i < step_len; i ++) {
-            value >>= 2;
-            value += (agctIndex(ref_seq_code[i + one_sub_str])) << shift_bit_num;
-            loc[i] = point[value];
-            point[value] = i;
-        }
-    }
-
     public static void searchMatchPosVec() {    //二次压缩小写字符二元组
         for (int x = 0; x < tar_low_vec_len; x ++) {
             diff_low_loc[x] = 0;
         }
-
-//        for(int i = 0; i < tar_low_vec_len; i ++){
-//            //search from the start_position to the end
-//            for (int j = start_position; j < ref_low_vec_len; j ++){
-//                if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])) {
-//                    diff_low_loc[i] = j;
-//                    start_position = j + 1;
-//                    break;
-//                }
-//            }
-//
-//            //search from the start_position to the begin
-//            if(diff_low_loc[i] == 0) {
-//                for (int j = start_position - 1; j > 0; j --){
-//                    if ((tar_low_vec_begin[i] == ref_low_vec_begin[j]) && (tar_low_vec_length[i] == ref_low_vec_length[j])){
-//                        diff_low_loc[i] = j;
-//                        start_position = j + 1;
-//                        break;
-//                    }
-//                }
-//            }
-//
-//            //record the mismatched information
-//            if(diff_low_loc[i] == 0){
-//                diff_low_vec_begin[diff_low_vec_len] = tar_low_vec_begin[i];
-//                diff_low_vec_length[diff_low_vec_len ++] = tar_low_vec_length[i ++];
-//            }
-//        }
 
         int start_position = 0, i = 0;
         out:
@@ -374,77 +323,104 @@ public class Compress {
         }
     }
 
+    public static void kMerHashingConstruct() {
+        int value = 0;
+        int step_len = ref_seq_len - kMerLen + 1;
+        for (int i = 0; i < max_arr_num; i ++) {
+            point[i] = -1;
+        }
+
+        for (int k = kMerLen - 1; k >= 0; k --) {
+            value <<= 2;
+            value += agctIndex(ref_seq_code[k]);
+        }
+        loc[0] = point[value];
+        point[value] = 0;
+
+        int shift_bit_num = (kMerLen * 2 - 2);
+        int one_sub_str = kMerLen - 1;
+        for (int i = 1; i < step_len; i ++) {
+            value >>= 2;
+            value += (agctIndex(ref_seq_code[i + one_sub_str])) << shift_bit_num;
+            loc[i] = point[value];
+            point[value] = i;
+        }
+    }
+
     public static void searchMatchSeqCode(Stream stream) {
         int pre_pos = 0;
-        int step_len = tar_seq_len - min_rep_len + 1;
+        int step_len = tar_seq_len - kMerLen + 1;   //step_len = 34170096,有step_len组kMer
         int max_length, max_k;
 
-        int dis_str_len = 0, i, id, k, ref_idx, tar_idx, length, cur_pos;
+        int misLen = 0, i, j, k, id, ref_idx, tar_idx, length, cur_pos;
         int tar_value;
 
-        for (i = 0; i < step_len; i++) {
+        for (i = 0; i < step_len; i ++) {
             tar_value = 0;
-            for (k = min_rep_len - 1; k >= 0; k--) {
+            for (j = kMerLen - 1; j >= 0; j --) {
                 tar_value <<= 2;
-                tar_value += agctIndex(tar_seq_code[i + k]);
+                tar_value += agctIndex(tar_seq_code[i + j]);
             }
 
-            id = point[tar_value];
-            if (id > -1) {
+            id = point[tar_value];  //研究
+            if (id > -1) {  //匹配成功，寻找连续最大匹配
                 max_length = -1;
                 max_k = -1;
+
                 for (k = id; k != -1; k = loc[k]) {
-                    ref_idx = k + min_rep_len;
-                    tar_idx = i + min_rep_len;
-                    length = min_rep_len;
+                    ref_idx = k + kMerLen;
+                    tar_idx = i + kMerLen;
+                    length = kMerLen;
                     while (ref_idx < ref_seq_len && tar_idx < tar_seq_len && ref_seq_code[ref_idx ++] == tar_seq_code[tar_idx ++]) {
-                        length++;
+                        length ++;
                     }
-                    if (length > max_length) {
+                    if (length >= min_rep_len && length > max_length) {
                         max_length = length;
                         max_k = k;
                     }
                 }
-                binaryCoding(stream, dis_str_len);
-                if (dis_str_len > 0) {
-                    for(int x = 0; x < dis_str_len; x ++)
-                        bitFilePutChar(stream, dismatched_str[x] - 'A');
-                    dis_str_len = 0;
-                }
-                cur_pos = max_k - pre_pos;
-                pre_pos = max_k + max_length;
-                if(cur_pos < 0){
-                    cur_pos = -cur_pos;
-                    int type = 1;
-                    bitFilePutBit(stream, type);
-                    binaryCoding(stream, cur_pos);
-                    binaryCoding(stream,max_length - min_rep_len);
-                }
-                else{
-                    int type=0;
-                    bitFilePutBit(stream, type);
-                    binaryCoding(stream, cur_pos);
-                    binaryCoding(stream,max_length - min_rep_len);
-                }
 
-                i += max_length-1;
-                continue;
+                if (max_k > -1) {
+                    //找到最大匹配后，先将tar之间未匹配的写入文件，包括长度和字符
+                    binaryCoding(stream, misLen);
+                    if (misLen > 0) {
+                        for (int x = 0; x < misLen; x++) {
+                            bitFilePutBitsInt(stream, agctIndex(dismatched_str[i]), 2);
+//                        bitFilePutChar(stream, dismatched_str[x] - 'A');
+                        }
+                        misLen = 0;
+                    }
+
+                    cur_pos = max_k - pre_pos;
+                    pre_pos = max_k + max_length;
+                    if (cur_pos < 0) {
+                        cur_pos = -cur_pos;
+                        bitFilePutBit(stream, 1);
+                    } else {
+                        bitFilePutBit(stream, 0);
+                    }
+                    binaryCoding(stream, cur_pos);
+                    binaryCoding(stream, max_length - min_rep_len);
+                    i += (max_length - 1);
+                    continue;
+                }
             }
-            dismatched_str[dis_str_len ++] = tar_seq_code[i];
+            dismatched_str[misLen ++] = tar_seq_code[i];
         }
 
         for(; i < tar_seq_len; i++) {
-            dismatched_str[dis_str_len ++] = tar_seq_code[i];
+            dismatched_str[misLen ++] = tar_seq_code[i];
         }
-        binaryCoding(stream, dis_str_len);
-        if (dis_str_len > 0) {
-            for(int x = 0; x < dis_str_len; x ++) {
+
+        binaryCoding(stream, misLen);
+        if (misLen > 0) {
+            for(int x = 0; x < misLen; x ++) {
                 bitFilePutChar(stream, dismatched_str[x] - 'A');
             }
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         File refFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg17_chr21.fa");
         File tarFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg18_chr21.fa");
         File resultFile = new File("E:/result.txt");
@@ -473,7 +449,7 @@ public class Compress {
         time = System.currentTimeMillis();
 
         searchMatchSeqCode(stream);
-        System.out.println("serarchMatch耗费时间为" + (System.currentTimeMillis() - time) + "ms");
+        System.out.println("serarchMatchSeqCode耗费时间为" + (System.currentTimeMillis() - time) + "ms");
         System.out.println("总耗费时间为" + (System.currentTimeMillis() - startTime) + "ms");
     }
 }

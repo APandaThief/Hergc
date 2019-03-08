@@ -25,12 +25,19 @@ public class BitFile {
                 bos = new BufferedOutputStream(new FileOutputStream(stream.getFile(), true));
                 bos.write((char)bitBuffer);
                 bos.flush();
-                bos.close();
 
                 stream.setBitCount(0);
                 stream.setBitBuffer(0);
             } catch (IOException e) {
                 e.printStackTrace();
+            } finally {
+                try {
+                    if (bos != null) {
+                        bos.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -93,7 +100,7 @@ public class BitFile {
             offset --;
         }
 
-        //将剩下来的数据一个bit一个bit地写入压缩文件
+        //将剩下来的数据写入压缩文件
         if (remaining != 0) {
             int tmp = getInt(num, offset);
 
