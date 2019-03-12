@@ -7,10 +7,10 @@ import static cn.chase.BitFile.*;
 public class Compress {
     private static int kMerLen = 11;
     private static int min_rep_len = 11;
-    private static int max_arr_num_bit = 2 * min_rep_len;
-    private static int max_arr_num = 1 << max_arr_num_bit;
-    private static int MAX_CHAR_NUM = 1 << 26;
-    private static int min_size = 1 << 20;
+    private static int kMer_bit_num = 2 * kMerLen;
+    private static int hashTableLen = 1 << kMer_bit_num;
+    private static int MAX_CHAR_NUM = 1 << 28;
+    private static int vec_size = 1 << 20;
 
     private static String identifier;
     private static int ref_low_vec_len = 0, tar_low_vec_len = 0, line_break_len = 0, other_char_len = 0, N_vec_len = 0, line_len = 0, ref_seq_len = 0, tar_seq_len = 0;
@@ -18,27 +18,27 @@ public class Compress {
 
     private static char[] ref_seq_code = new char[MAX_CHAR_NUM];
     private static char[] tar_seq_code = new char[MAX_CHAR_NUM];
-    private static int[] ref_low_vec_begin = new int[min_size];
-    private static int[] ref_low_vec_length = new int[min_size];
-    private static int[] tar_low_vec_begin = new int[min_size];
-    private static int[] tar_low_vec_length = new int[min_size];
-    private static int[] N_vec_begin = new int[min_size];
-    private static int[] N_vec_length = new int[min_size];
-    private static int[] other_char_vec_pos = new int[min_size];
-    private static char[] other_char_vec_ch = new char[min_size];
-    private static int[] diff_low_vec_begin = new int[min_size];
-    private static int[] diff_low_vec_length = new int[min_size];
-    private static int[] line_start = new int[min_size];
-    private static int[] line_length = new int[min_size];
-    private static int[] diff_pos_loc_begin = new int[min_size];
-    private static int[] diff_pos_loc_length = new int[min_size];
+    private static int[] ref_low_vec_begin = new int[vec_size];
+    private static int[] ref_low_vec_length = new int[vec_size];
+    private static int[] tar_low_vec_begin = new int[vec_size];
+    private static int[] tar_low_vec_length = new int[vec_size];
+    private static int[] N_vec_begin = new int[vec_size];
+    private static int[] N_vec_length = new int[vec_size];
+    private static int[] other_char_vec_pos = new int[vec_size];
+    private static char[] other_char_vec_ch = new char[vec_size];
+    private static int[] diff_low_vec_begin = new int[vec_size];
+    private static int[] diff_low_vec_length = new int[vec_size];
+    private static int[] line_start = new int[vec_size];
+    private static int[] line_length = new int[vec_size];
+    private static int[] diff_pos_loc_begin = new int[vec_size];
+    private static int[] diff_pos_loc_length = new int[vec_size];
     private static int[] line_break_vec = new int[1 << 25];
-    private static int[] point = new int[max_arr_num];
+    private static int[] point = new int[hashTableLen];
     private static int[] loc = new int[MAX_CHAR_NUM];
-    private static int[] diff_low_loc = new int[min_size];
-    private static char[] dismatched_str = new char[min_size];
+    private static int[] diff_low_loc = new int[vec_size];
+    private static char[] mismatched_str = new char[vec_size];
 
-    public static byte agctIndex(char ch) {
+    public static byte integerCoding(char ch) {
         if (ch == 'A') {
             return 0;
         }
@@ -211,6 +211,7 @@ public class Compress {
             }
             line_length[line_len ++] = cnt;
         }
+        System.out.println("line_break_len为" + line_break_len);
     }
 
     public static void searchMatchPosVec() {    //二次压缩小写字符二元组
@@ -326,13 +327,13 @@ public class Compress {
     public static void kMerHashingConstruct() {
         int value = 0;
         int step_len = ref_seq_len - kMerLen + 1;
-        for (int i = 0; i < max_arr_num; i ++) {
+        for (int i = 0; i < hashTableLen; i ++) {
             point[i] = -1;
         }
 
         for (int k = kMerLen - 1; k >= 0; k --) {
             value <<= 2;
-            value += agctIndex(ref_seq_code[k]);
+            value += integerCoding(ref_seq_code[k]);
         }
         loc[0] = point[value];
         point[value] = 0;
@@ -341,14 +342,14 @@ public class Compress {
         int one_sub_str = kMerLen - 1;
         for (int i = 1; i < step_len; i ++) {
             value >>= 2;
-            value += (agctIndex(ref_seq_code[i + one_sub_str])) << shift_bit_num;
+            value += (integerCoding(ref_seq_code[i + one_sub_str])) << shift_bit_num;
             loc[i] = point[value];
             point[value] = i;
         }
     }
 
     public static void searchMatchSeqCode(Stream stream) {
-        int pre_pos = 0;
+        int pre_pos = 0, misLen_total = 0;
         int step_len = tar_seq_len - kMerLen + 1;   //step_len = 34170096,有step_len组kMer
         int max_length, max_k;
 
@@ -359,7 +360,7 @@ public class Compress {
             tar_value = 0;
             for (j = kMerLen - 1; j >= 0; j --) {
                 tar_value <<= 2;
-                tar_value += agctIndex(tar_seq_code[i + j]);
+                tar_value += integerCoding(tar_seq_code[i + j]);
             }
 
             id = point[tar_value];  //研究
@@ -384,9 +385,12 @@ public class Compress {
                     //找到最大匹配后，先将tar之间未匹配的写入文件，包括长度和字符
                     binaryCoding(stream, misLen);
                     if (misLen > 0) {
-                        for (int x = 0; x < misLen; x++) {
-                            bitFilePutBitsInt(stream, agctIndex(dismatched_str[i]), 2);
-//                        bitFilePutChar(stream, dismatched_str[x] - 'A');
+                        misLen_total += misLen;
+
+                        //2-bit coding for mismatched string
+                        for(int m = 0; m < misLen; m ++){
+                            int num = integerCoding(mismatched_str[m]);
+                            bitFilePutBitsInt(stream, num, 2);
                         }
                         misLen = 0;
                     }
@@ -405,25 +409,26 @@ public class Compress {
                     continue;
                 }
             }
-            dismatched_str[misLen ++] = tar_seq_code[i];
+            mismatched_str[misLen ++] = tar_seq_code[i];
         }
 
         for(; i < tar_seq_len; i++) {
             System.out.println("hello");
-            dismatched_str[misLen ++] = tar_seq_code[i];
+            mismatched_str[misLen ++] = tar_seq_code[i];
         }
 
         binaryCoding(stream, misLen);
         if (misLen > 0) {
             for(int x = 0; x < misLen; x ++) {
-                bitFilePutChar(stream, dismatched_str[x] - 'A');
+                int num=integerCoding(mismatched_str[i]);
+                bitFilePutBitsInt(stream, num, 2);
             }
         }
     }
 
     public static void main(String[] args) {
-        File refFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg17_chr21.fa");
-        File tarFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg18_chr21.fa");
+        File refFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg17_chr1.fa");
+        File tarFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg18_chr1.fa");
         File resultFile = new File("E:/result.txt");
         Stream stream = new Stream(resultFile, 0, 0);
 
