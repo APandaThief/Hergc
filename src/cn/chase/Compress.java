@@ -211,7 +211,6 @@ public class Compress {
             }
             line_length[line_len ++] = cnt;
         }
-        System.out.println("line_break_len为" + line_break_len);
     }
 
     public static void searchMatchPosVec() {    //二次压缩小写字符二元组
@@ -427,9 +426,15 @@ public class Compress {
     }
 
     public static void main(String[] args) {
-        File refFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg17_chr1.fa");
-        File tarFile = new File("C:/Users/chase/OneDrive/GeneFiles/hg18_chr1.fa");
-        File resultFile = new File("E:/result.txt");
+        File refFile;
+        File tarFile;
+        File resultFile;
+
+        refFile = new File(args[0]);
+        tarFile = new File(args[1]);
+        resultFile = new File(args[2]);
+
+
         Stream stream = new Stream(resultFile, 0, 0);
 
         long startTime = System.currentTimeMillis();

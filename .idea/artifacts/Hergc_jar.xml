@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Hergc:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Hergc_jar</output-path>
+    <root id="archive" name="Hergc.jar">
+      <element id="module-output" name="Hergc" />
+    </root>
+  </artifact>
+</component>
